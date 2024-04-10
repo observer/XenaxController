@@ -1,0 +1,336 @@
+* XenaxController Class Usage Guide
+
+This guide provides instructions on how to utilize the XenaxController class for controlling XENAX controllers connected to a magnetic Linax RAILS, developed by [[https://www.jennyscience.com/de][Jenny Science AG]]. The class enables precise control over the controllers through network commands, including setting speed, acceleration, and moving to specific positions.
+
+** Installation
+
+To use the XenaxController class, ensure Python is installed on your system and that you have network connectivity to the Xenax controllers.
+
+** Basic Operations
+
+After initializing the controllers, you can perform operations such as connecting to the controller, moving to a specific position, setting the speed and acceleration, and retrieving the current position.
+
+#+BEGIN_SRC python
+from XenaxController import XenaxController
+import time
+
+# Controller A Configuration - Custom speed and acceleration
+controller_a = XenaxController(ip_address="192.168.2.120", limit_right=135000)
+controller_a.connect()
+controller_a.set_speed(50000)  # Custom speed for Controller A
+controller_a.set_acceleration(500000)  # Custom acceleration for Controller A
+
+# Controller B Configuration - Default speed and acceleration
+controller_b = XenaxController(ip_address="192.168.2.101", limit_right=135000)
+controller_b.connect()  # Using default speed and acceleration for Controller B
+
+controllers = [controller_a, controller_b]
+
+# Sequentially move each controller to min_position, center_position, and max_position
+for controller in controllers:
+    for position in ['min_position', 'center_position', 'max_position']:
+        # Dynamically get the position attribute
+        target_position = getattr(controller, position)
+        controller.set_position(target_position)
+        time.sleep(2)  # Wait for the movement to complete
+        # Retrieve and print the current position
+        current_position = controller.get_position()
+        print(f"Controller at IP {controller.ip_address} moved to {position} ({target_position}), current position: {current_position}")
+
+    # Optional: Additional logic can be added here for more operations
+
+# Disconnect controllers after operations
+controller_a.disconnect()
+controller_b.disconnect()
+#+END_SRC
+
+In this example, controller A is set with custom speed and acceleration values, while controller B retains the default settings. Each controller is then moved through a series of positions: minimum, center, and maximum. After reaching each position, the controller's current position is retrieved using the `get_position` method and printed. This example should be enough to get you started.
+
+** Functionality Overview
+
+The XenaxController class provides various functions to control and manage the Xenax controllers. Below is a table summarizing each function, its parameters, and its purpose.
+
+| Function Name         | Parameters                                                     | Description                                                                                        |
+|-----------------------+----------------------------------------------------------------+----------------------------------------------------------------------------------------------------|
+| __init__                | ip_address, port, limit_left, limit_right, speed, acceleration | Initializes a new controller instance with the specified network settings and movement parameters. |
+| connect               | None                                                           | Establishes a connection to the Xenax controller using the provided IP address and port.           |
+| disconnect            | None                                                           | Closes the connection to the Xenax controller.                                                     |
+| send_command          | command                                                        | Sends a specified command to the controller and stores the response.                               |
+| clear_buffer          | None                                                           | Clears any unread data from the socket to ensure no stale data affects subsequent commands.        |
+| read_response         | None                                                           | Reads the response from the controller, decodes it, and strips unnecessary characters.             |
+| response              | None                                                           | Returns the last received response without sending a new command or reading from the buffer.       |
+| set_speed             | value, during_init                                             | Sets the movement speed of the controller. Validates the provided speed value.                     |
+| get_speed             | None                                                           | Returns the currently set speed of the controller.                                                 |
+| set_acceleration      | value, during_init                                             | Sets the acceleration of the controller. Validates the provided acceleration value.                |
+| get_acceleration      | None                                                           | Returns the currently set acceleration of the controller.                                          |
+| set_position          | value                                                          | Moves the controller to a specified position, ensuring the position is within set limits.          |
+| get_position          | None                                                           | Requests and returns the current position of the controller.                                       |
+| jog_positive          | None                                                           | Moves the controller positively along the rail.                                                    |
+| jog_negative          | None                                                           | Moves the controller negatively along the rail.                                                    |
+| power_on              | None                                                           | Sends the command to power on the controller.                                                      |
+| power_off             | None                                                           | Sends the command to power off the controller.                                                     |
+| initialize            | None                                                           | Sends a series of initialization commands to the controller upon connection.                       |
+| center_position       | (property)                                                     | Calculates and returns the center position between the set left and right limits.                  |
+| min_position          | (property)                                                     | Returns the minimum position limit (alias for limit_left).                                         |
+| max_position          | (property)                                                     | Returns the maximum position limit (alias for limit_right).                                        |
+| min_position (setter) | value                                                          | Updates the minimum position limit (limit_left) with the specified value.                          |
+| max_position (setter) | value                                                          | Updates the maximum position limit (limit_right) with the specified value.                         |
+
+** Buffer Management
+
+The combination of /send_command()/, /clear_buffer()/, and /read_response()/ ensures that each command's response is accurately captured without interference from previous commands' leftovers. This approach guarantees that the buffer remains clean, preventing situations where old responses in the buffer could lead to incorrect behavior or "weird shit". The /response()/ method allows for the retrieval of the last command's result multiple times without re-executing the command, facilitating efficient and error-free communication with the controller.
+
+* Connecting Controllers via an Ethernet Switch
+
+To control the XENAX controllers without a direct network connection, you can use an Ethernet switch. It is recommended that the switch should not to be connected to an external network as the controllers give themselves the IP addresses they are configured with. Ensure each controller and the controlling computer are connected to the switch. This configuration allows for isolated communication between the computer and controllers, enhancing security and reducing network interference.
+
+** Setting Up IP Addresses on your computer (not the controller)
+
+For communication with the controllers, the controlling computer needs to be on the same subnet (`192.168.2.0/24`). Below are the steps to configure the IP address on both Linux and Windows systems.
+
+*** Linux (Using iproute2)
+
+1. Open a terminal.
+2. Identify the name of the Ethernet interface connected to the switch using `ip link` or `ifconfig`.
+3. Assign an IP address in the `192.168.2.0/24` range to the interface. Replace `eth0` with your interface name and `192.168.2.x` with your chosen IP address.
+   #+BEGIN_SRC sh
+   sudo ip addr add 192.168.2.x/24 dev eth0
+   #+END_SRC
+4. Confirm the IP address is assigned correctly with `ip addr show eth0`.
+
+*** Windows
+
+1. Open Control Panel > Network and Sharing Center > Change adapter settings.
+2. Right-click the Ethernet connection used to connect to the switch and select Properties.
+3. Select "Internet Protocol Version 4 (TCP/IPv4)" and click Properties.
+4. Choose "Use the following IP address" and enter an IP address within the `192.168.2.0/24` range (e.g., `192.168.2.x`), with a subnet mask of `255.255.255.0`.
+5. Click OK to apply the settings.
+
+** Verification
+
+After setting up the IP addresses, ensure that the computer can communicate with the controllers by pinging their IP addresses.
+
+#+BEGIN_SRC sh
+ping 192.168.2.120  # Replace with the actual controller IP address
+#+END_SRC
+
+Successful ping responses indicate that the network configuration is correct, and you can proceed to control the controllers using the provided Python class.
+
+* Setting up the controller IPs
+
+In order to find the controllers connected to the ethernet switch you can use some python code, e.g.:
+
+
+#+BEGIN_SRC python
+import socket
+import threading
+from ipaddress import IPv4Network
+
+# Target network and port
+network = "192.168.2.0/24"
+port = 9999
+timeout = 1  # Connection timeout in seconds
+
+def check_port(ip, port):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(timeout)
+            result = sock.connect_ex((ip, port))
+            if result == 0:
+                print(f"{ip} has port {port} open.")
+    except socket.error as err:
+        print(f"Error checking {ip}: {err}")
+
+def main():
+    threads = []
+    for ip in IPv4Network(network).hosts():
+        thread = threading.Thread(target=check_port, args=(str(ip), port))
+        thread.start()
+        threads.append(thread)
+    
+    for thread in threads:
+        thread.join()
+
+if __name__ == "__main__":
+    main()
+#+END_SRC
+
+This script will search the network and output something like this:
+#+begin_src sh
+$ python nmap.py 
+192.168.2.101 has port 9999 open.
+192.168.2.110 has port 9999 open.
+#+end_src
+
+* Using telnet to set the Controller IP Address
+
+The controller IPs can be simply set up using the telnet client.
+
+** Installing telnet on Windows (not tested, I don't have Windows)
+
+1. Open Control Panel: Press ~Windows + S~, type "Control Panel" and click on it.
+2. Programs and Features: Go to "Programs" and then "Programs and Features".
+3. Turn Windows features on or off: On the left side, click on "Turn Windows features on or off".
+4. Enable Telnet Client: Scroll down to find "Telnet Client", check the box next to it, and click "OK". Windows will install the feature.
+** Using Telnet in Windows
+1. Open Command Prompt or PowerShell: Press ~Windows + S~, type "cmd" or "PowerShell", and press Enter.
+2. Connect using Telnet: Type ~telnet [IP address or domain] [port]~ and press Enter. For example, to connect to a device with IP address 192.168.1.1 on port 23, you would type ~telnet 192.168.1.1 23~.
+
+** Accessing the controllers
+
+Connect to the IP and Port:
+
+#+begin_src sh
+$ telnet 192.168.2.110 9999
+Connected to 192.168.2.110
+
+Entering character mode
+Escape character is '^]'.
+
+
+MAC address 00204AB133E0
+Software version V6.5.0.7 (070919) XPTEXE
+
+Press Enter for Setup Mode 
+#+end_src
+
+Press Enter to enter the Menu, there will be a lot of information followed by a prompt:
+
+#+begin_src sh
+,*** basic parameters 
+,Hardware: Ethernet TPI
+,IP addr 192.168.2.110, no gateway set,netmask 255.255.255.0
+,
+,*** Security
+,SNMP is              enabled
+,SNMP Community Name: public
+,Telnet Setup is      enabled
+,TFTP Download is     enabled
+,Port 77FEh is        enabled
+,Web Server is        enabled
+,Web Setup is         enabled
+,ECHO is              disabled
+,Enhanced Password is disabled
+,Port 77F0h is        enabled
+,
+,*** Channel 1
+,Baudrate 115200, I/F Mode 4C, Flow 00
+,Port 10001
+,Connect Mode : C0
+,Send '+++' in Modem Mode enabled
+,Show IP addr after 'RING' enabled
+,Auto increment source port disabled
+,Remote IP Adr: --- none ---, Port 00000
+,Disconn Mode : 00
+,Flush   Mode : 80
+,Pack Cntrl   : 10
+,SendChars    : 0A 3E 
+,
+,*** Expert
+,TCP Keepalive    : 45s
+,ARP cache timeout: 600s
+,CPU performance: Regular
+,Monitor Mode @ bootup : enabled
+,RS485 tx enable  : active low
+,HTTP Port Number : 80
+,SMTP Port Number : 25
+,MTU Size: 1400
+,Alternate MAC: disabled
+,Ethernet connection type: auto-negotiate
+,
+,*** E-mail
+,Mail server: 0.0.0.0
+,Unit       : 
+,Domain     : 
+,Recipient 1: 
+,Recipient 2: 
+,
+,- Trigger 1 
+,Serial trigger input: disabled
+,  Channel: 1
+,  Match: 00,00
+,Trigger input1: X
+,Trigger input2: X
+,Trigger input3: X
+,Message : 
+,Priority: L
+,Min. notification interval: 1 s
+,Re-notification interval  : 0 s
+,
+,- Trigger 2 
+,Serial trigger input: disabled
+,  Channel: 1
+,  Match: 00,00
+,Trigger input1: X
+,Trigger input2: X
+,Trigger input3: X
+,Message : 
+,Priority: L
+,Min. notification interval: 1 s
+,Re-notification interval  : 0 s
+,
+,- Trigger 3 
+,Serial trigger input: disabled
+,  Channel: 1
+,  Match: 00,00
+,Trigger input1: X
+,Trigger input2: X
+,Trigger input3: X
+,Message : 
+,Priority: L
+,Min. notification interval: 1 s
+,Re-notification interval  : 0 s
+,
+,
+,Change Setup:
+,  0 Server
+,  1 Channel 1
+,  3 E-mail
+,  5 Expert
+,  6 Security
+,  7 Defaults
+,  8 Exit without save
+,  9 Save and exit            Your choice ? 
+,
+#+end_src
+
+Enter 0 to change server settings, then enter the new IP address and save the changes by entering 9:
+#+begin_src sh
+IP Address : (192) .(168) .(002) .(100) 110
+Set Gateway IP Address (N) ? 
+Netmask: Number of Bits for Host Part (0=default) (8) 
+Change telnet config password (N) ? 
+
+Change Setup:
+  0 Server
+  1 Channel 1
+  3 E-mail
+  5 Expert
+  6 Security
+  7 Defaults
+  8 Exit without save
+  9 Save and exit            Your choice ? 9
+
+Parameters stored ...
+Connection closed by foreign host
+#+end_src
+
+The Port number can be set in menu 1:
+#+begin_src sh
+Baudrate (115200) ? 
+I/F Mode (4C) ? 
+Flow (00) ? 
+Port No (10001) ? 
+ConnectMode (C0) ? 
+Send '+++' in Modem Mode  (Y) ? 
+Show IP addr after 'RING'  (Y) ? 
+Auto increment source port  (N) ? 
+Remote IP Address : (000) .(000) .(000) .(000) 
+Remote Port  (0) ? 
+DisConnMode (00) ? 
+FlushMode   (80) ? 
+Pack Cntrl  (10) ? 
+DisConnTime (00:00) ?:
+SendChar 1  (0A) ? 
+SendChar 2  (3E) ? 
+#+end_src
