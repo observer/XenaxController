@@ -158,4 +158,15 @@ class XenaxController:
     def power_off(self):
         # Power off the controller
         self.send_command("PQ")
-
+        
+    def get_input(self, pin):
+        # Get feedback from PLC input 0 = Low 1 = High
+        self.send_command(f"TI{pin}")
+        return self.response()
+    
+    def set_output(self, pin, state):
+        #Set (High) PLC Output with True, clear (LOW) with False. Output is set by default.
+        if state:
+            self.send_command(f"SO{pin}")
+        elif not state:
+            self.send_command(f"CO{pin}")

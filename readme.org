@@ -65,6 +65,8 @@ The XenaxController class provides various functions to control and manage the X
 | get_acceleration      | None                                                           | Returns the currently set acceleration of the controller.                                          |
 | set_position          | value                                                          | Moves the controller to a specified position, ensuring the position is within set limits.          |
 | get_position          | None                                                           | Requests and returns the current position of the controller.                                       |
+| get_input             | pin                                                            | Gets state of input pin.                                                                           |
+| set_output            | pin, state                                                     | Sets output pin to HIGH or LOW depending on value of state variable. Set to HIGH by default.       |
 | jog_positive          | None                                                           | Moves the controller positively along the rail.                                                    |
 | jog_negative          | None                                                           | Moves the controller negatively along the rail.                                                    |
 | power_on              | None                                                           | Sends the command to power on the controller.                                                      |
